@@ -111,8 +111,8 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
     server_info = SERVERS.get(server_name, {"ip": "Desconhecido", "so": "Linux"})
     
     for line in lines:
-        if "Caption" in line and "Size" in text:
-            # Pula cabeçalho do wmic
+        if ("Caption" in line and "Size" in text) or "DeviceId" in line or "--------" in line:
+            # Pula cabeçalho do wmic e PowerShell
             continue
             
         parts = re.split(r'\s+', line.strip())
@@ -128,7 +128,7 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             except ValueError:
                 perc = 0.0
                 
-        elif len(parts) == 3 and parts[0].endswith(':'): # Formato wmic (Caption, FreeSpace, Size)
+        elif len(parts) == 3 and parts[0].endswith(':'): # Formato wmic e PowerShell (Caption/DeviceId, FreeSpace, Size)
             # Ex: C:       45749219328   213645012992
             particao = parts[0]
             try:

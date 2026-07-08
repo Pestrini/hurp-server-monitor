@@ -53,9 +53,9 @@ with st.sidebar.expander("📖 Passo a Passo & Comandos", expanded=True):
     - Copie a saída e cole na caixa de texto.
 
     **2. Servidores Windows**
-    - Abra o PowerShell ou Prompt de Comando.
+    - Abra o **PowerShell** (não o Prompt de Comando antigo).
     - Execute o comando:
-      `wmic logicaldisk where drivetype=3 get caption,freespace,size`
+      `Get-CimInstance Win32_LogicalDisk | Where-Object DriveType -eq 3 | Select-Object DeviceId, FreeSpace, Size`
     - Copie o texto e cole na **mesma** caixa de texto da esquerda.
     - Selecione manualmente o Servidor no dropdown (ex: VIVACE_PACS_01).
 
@@ -90,7 +90,7 @@ with tab1:
                 st.session_state["generated_txt_report"] = None
             
         server_txt = st.selectbox("Servidor (Opcional - força um servidor)", ["Automático"] + list(SERVERS.keys()), key="srv_txt")
-        text_input = st.text_area("Cole aqui o output do 'df -h' (Linux) ou 'wmic' (Windows)", height=250, key="raw_text")
+        text_input = st.text_area("Cole aqui o output do 'df -h' (Linux) ou PowerShell (Windows)", height=250, key="raw_text")
         
         c_btn1, c_btn2 = st.columns(2)
         with c_btn1:
