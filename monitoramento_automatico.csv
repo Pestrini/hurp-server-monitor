@@ -1,0 +1,5 @@
+timestamp,servidor,ip,so,particao,capacidade_total,espaco_ocupado,espaco_disponivel,percentual_uso,status_alerta
+2026-07-07 19:31:17,SHIFT_DB_PRD,192.168.1.1,Linux,/dados,855G,693G,163G,81%,ATENÇÃO
+2026-07-07 19:31:17,SHIFT_DB_PRD,192.168.1.1,Linux,/tmp,52G,109M,52G,1%,NORMAL
+2026-07-07 19:31:17,VIVACE_PACS_01,192.168.1.5,Windows,C:,199.0 GB,156.2 GB,42.8 GB,78%,ATENÇÃO
+2026-07-07 19:31:17,VIVACE_PACS_01,192.168.1.5,Windows,Z:,2000.0 GB,1840.0 GB,160.0 GB,92%,CRÍTICO
