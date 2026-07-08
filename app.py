@@ -400,7 +400,8 @@ with tab2:
             df_3_meses['data'] = df_3_meses['timestamp'].dt.date
             
             # Preparar dados para o gráfico de linhas (pivot table)
-            df_3_meses['chave'] = df_3_meses['servidor'] + " - " + df_3_meses['particao']
+            # Removemos os dois-pontos (:) das partições (ex: C:) porque o Altair confunde com a declaração de tipo de dados
+            df_3_meses['chave'] = df_3_meses['servidor'] + " - " + df_3_meses['particao'].str.replace(':', '', regex=False)
             chart_data = df_3_meses.pivot_table(index='data', columns='chave', values='percentual_num', aggfunc='mean')
             
             st.line_chart(chart_data)
