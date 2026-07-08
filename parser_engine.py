@@ -29,7 +29,7 @@ SERVERS = {
         "so": "Windows",
         "identifiers": ["192.168.1.3", "C:", "D:"]
     },
-    "WEB": {
+    "SHIFT_WEB": {
         "ip": "192.168.1.4",
         "so": "Linux",
         "identifiers": ["192.168.1.4"]
@@ -44,17 +44,17 @@ SERVERS = {
         "so": "Windows",
         "identifiers": ["192.168.1.6"]
     },
-     "VIVACE_PACS_WEB": {
+    "VIVACE_PACS_WEB": {
         "ip": "192.168.1.7",
         "so": "Windows",
         "identifiers": ["192.168.1.7"]
     },
-    "MV_TOMCAT": {
+    "MV_PRODUCAO_02": {
         "ip": "192.168.1.8",
         "so": "Linux",
         "identifiers": ["192.168.1.8"]
     },
-    "MV_PRODUCAO": {
+    "MV_PRODUCAO_01": {
         "ip": "192.168.1.9",
         "so": "Windows",
         "identifiers": ["192.168.1.9"]

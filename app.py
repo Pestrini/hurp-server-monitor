@@ -69,6 +69,24 @@ with st.sidebar.expander("📖 Passo a Passo & Comandos", expanded=True):
     - Clique em **Salvar e Consolidar**!
     """)
 
+with st.sidebar.expander("🖥️ Lista de Servidores", expanded=False):
+    st.markdown("""
+    | Servidor | SO | IP |
+    |---|---|---|
+    | **SHIFT_DB_PRD** | Linux | `192.168.1.1` |
+    | **SHIFT_SHADOW** | Linux | `192.168.1.2` |
+    | **SHIFT_AUTOMACAO** | Windows | `192.168.1.3` |
+    | **SHIFT_WEB** | Linux | `192.168.1.4` |
+    | **VIVACE_PACS_01** | Windows | `192.168.1.5` |
+    | **VIVACE_PACS_02** | Windows | `192.168.1.6` |
+    | **VIVACE_PACS_WEB** | Windows | `192.168.1.7` |
+    | **MV_PRODUCAO_02** | Linux | `192.168.1.8` |
+    | **MV_PRODUCAO_01** | Windows | `192.168.1.9` |
+    | **MV_BALANCE** | Linux | `192.168.1.10` |
+    | **HINNO_APP** | Linux | `192.168.1.11` |
+    | **GREEN** | Linux | `192.168.1.12` |
+    """)
+
 st.title("HURP Server Monitor: Clipboard-to-Report")
 
 tab1, tab2 = st.tabs(["Entrada de Dados (Cole os Logs/Imagens)", "Histórico de Monitoramento (Métricas de BI)"])
@@ -189,10 +207,14 @@ with tab1:
                 "SHIFT_SHADOW": "SHIFT SHADOW",
                 "VIVACE_PACS_01": "VIVACE PACS 01",
                 "VIVACE_PACS_02": "VIVACE PACS 02",
+                "VIVACE_PACS_WEB": "VIVACE PACS WEB",
                 "SHIFT_AUTOMACAO": "SHIFT AUTO",
-                "WEB": "WEB SERVER",
-                "MV_PRODUCAO": "MV PRODUÇÃO",
-                "MV_TOMCAT": "MV TOMCAT"
+                "SHIFT_WEB": "WEB SERVER",
+                "MV_PRODUCAO_01": "MV PRODUÇÃO",
+                "MV_PRODUCAO_02": "MV TOMCAT",
+                "MV_BALANCE": "MV BALANCE",
+                "HINNO_APP": "HINNO APP",
+                "GREEN": "GREEN"
             }
             
             weekday_map = {0: "Segunda-feira", 1: "Terça-feira", 2: "Quarta-feira", 3: "Quinta-feira", 4: "Sexta-feira", 5: "Sábado", 6: "Domingo"}
