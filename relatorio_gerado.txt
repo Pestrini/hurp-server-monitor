@@ -1,0 +1,32 @@
+============================================================
+RELATÓRIO DE MONITORAMENTO DE SERVIDORES - TI HURP
+Data/Hora: 2026-07-07 19:31:17
+Analista Responsável: Gabriel Pestrini
+============================================================
+
+1. ANÁLISE DE ESPAÇO EM DISCO DAS PARTIÇÕES CRÍTICAS:
+------------------------------------------------------------
+• SHIFT_DB_PRD (192.168.1.1) - Partição /dados: Uso em 81% (693G ocupados de 855G) [ATENÇÃO]
+• SHIFT_DB_PRD (192.168.1.1) - Partição /tmp: Uso em 1% (109M ocupados de 52G)
+• VIVACE_PACS_01 (192.168.1.5) - Partição C:: Uso em 78% (156.2 GB ocupados de 199.0 GB) [ATENÇÃO]
+• VIVACE_PACS_01 (192.168.1.5) - Partição Z:: Uso em 92% (1840.0 GB ocupados de 2000.0 GB) [CRÍTICO]
+
+2. RESPOSTAS OBRIGATÓRIAS DO PLANTÃO:
+------------------------------------------------------------
+QUAIS SERVIDORES APRESENTARAM PROBLEMA?
+R: SHIFT_DB_PRD, VIVACE_PACS_01
+
+QUAIS AS AÇÕES IMEDIATAS?
+R: Verificar unidade Z: do VIVACE_PACS_01 para remoção de arquivos temporários de imagens / logs do Windows.
+
+QUAIS PONTOS DE ATENÇÃO?
+R: Espaço da unidade temporária Z: do PACS está diminuindo rapidamente devido ao fluxo de exames de imagem.
+
+ALGUMA INFORMAÇÃO ADICIONAL?
+R: Alinhado com Renan para acompanhar o crescimento do banco nas próximas 48h.
+
+ATIVIDADADES PLANEJADAS (PROXIMOS PASSOS):
+R: Programar expansão de disco junto ao time de Infraestrutura (Renan) caso o uso ultrapasse 95%.
+
+------------------------------------------------------------
+Relatório gerado automaticamente via Engine de Parser de Monitoramento.
