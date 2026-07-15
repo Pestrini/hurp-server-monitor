@@ -3,3 +3,6 @@ logs/
 users.json
 __pycache__/
 *.pyc
+.env
+scratch.py
+disk_analysis_report.md
