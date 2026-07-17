@@ -1,42 +1,45 @@
-# HURP Server Monitor
+# HURP Server Monitor (v0.3)
 
-O **HURP Server Monitor** é uma aplicação web interativa desenvolvida em Python com [Streamlit](https://streamlit.io/), desenhada para otimizar e padronizar o processo de monitoramento de discos de servidores (Windows e Linux) durante plantões de TI.
+O **HURP Server Monitor** é uma aplicação web interativa desenvolvida em Python com [Streamlit](https://streamlit.io/), desenhada para otimizar e padronizar o processo de monitoramento de infraestrutura (servidores Windows e Linux) durante plantões de TI.
 
-O sistema substitui rotinas manuais demoradas, permitindo que os analistas simplesmente copiem a saída de comandos do terminal (`df -h` no Linux ou comandos do PowerShell no Windows), colem na interface, e gerem relatórios automatizados, consolidados e visuais com apenas alguns cliques.
+A partir da versão 0.3, o sistema evoluiu de uma ferramenta de geração de relatórios manuais para um **Hub de Monitoramento Ativo**, integrando-se diretamente à API do Zabbix, aplicando inteligência preditiva e contando com um sistema robusto de autenticação e auditoria.
 
-## 🚀 Funcionalidades Principais
+## 🚀 Novidades da Versão 0.3
 
-- **Ingestão via Área de Transferência (Clipboard-to-Report):**
-  - **Linux:** Suporte direto à saída do comando `df -h`. O sistema identifica automaticamente colunas, percentuais de uso, partições e monta o dataframe.
-  - **Windows:** Suporte à saída de PowerShell (`Get-CimInstance Win32_LogicalDisk | Where-Object DriveType -eq 3 | Select-Object DeviceId, FreeSpace, Size`).
-- **Suporte a OCR (Imagens):** Opcionalmente, os analistas podem realizar o upload de prints de tela do Windows Explorer, e o sistema utilizará OCR (`pytesseract`) para extrair as informações.
-- **Processamento Automático:** 
-  - Cálculo inteligente de GB/MB livres, usados e percentual total.
-  - Regras automáticas de status (`NORMAL`, `ATENÇÃO`, `CRÍTICO`) baseadas em limites de capacidade.
-- **Assistente de Resumo (IA de Plantão):** O sistema pré-preenche perguntas padrão de relatórios de plantão (Quais servidores apresentaram problema? Quais ações foram tomadas?) analisando o status de cada disco inserido.
+- **Integração Zabbix via JSON-RPC:** Coleta automatizada de uso de disco, CPU, Memória, Swap, status de serviços e top processos diretamente da API do Zabbix, eliminando a necessidade de extrações manuais via terminal.
+- **Inteligência Preditiva (Smart Status):** Cálculo automático da taxa de crescimento diário do disco (`crescimento_gb_dia`) e previsão de dias até o esgotamento total (`dias_para_encher`).
+- **Autenticação e Perfis de Acesso:** Sistema de login com perfis de `admin` e `operador`, garantindo segurança no acesso e painel dedicado para gestão de usuários.
+- **Segurança de Credenciais:** Integração de `.env` para proteção do token da API do Zabbix.
+
+## ⚙️ Funcionalidades Principais
+
+- **Ingestão Automatizada Zabbix:** Dispensa comandos manuais. Os discos importantes de servidores mapeados são lidos automaticamente com métricas precisas (suporta fallback manual via Clipboard-to-Report).
+- **Processamento Inteligente e Predição:** 
+  - Regras automáticas de status (`NORMAL`, `ATENÇÃO`, `CRÍTICO`, `ESTÁVEL`, `INATIVO`) baseadas não só na ocupação, mas no comportamento clínico preditivo de consumo.
+- **Assistente de Resumo (IA de Plantão):** O sistema pré-preenche perguntas padrão de relatórios analisando o status clínico de cada disco e servidor inserido.
 - **Múltiplos Formatos de Exportação:**
   - **Relatório TXT:** Para envio rápido via WhatsApp, Teams ou E-mail.
-  - **Relatório Visual (HTML):** Um dashboard HTML moderno e responsivo, categorizado por servidor (com suporte para impressão em PDF).
+  - **Relatório Visual (HTML):** Dashboard HTML moderno e responsivo, categorizado por servidor (com suporte a impressão em PDF).
 - **Dashboard de Histórico Integrado:**
-  - Salva em um banco de dados local (`monitoramento_historico.csv`).
-  - Painel gerencial (BI) na aba de histórico exibindo evolução da capacidade de disco dos últimos 3 meses usando gráficos de linha do Altair.
+  - Salva em um banco de dados local consolidado (`monitoramento_historico.csv` com 18 colunas de telemetria).
+  - Painel gerencial (BI) na aba de histórico exibindo a evolução real da capacidade nos últimos meses.
 - **Logs e Rastreabilidade:**
-  - Registra automaticamente erros não tratados na aplicação em `logs/erros.log`.
-  - Registra ações gerenciais, como a limpeza de banco de dados e salvamento de dados atrelados ao Analista de Plantão em `logs/acoes.log`.
+  - Registra erros não tratados em `logs/erros.log`.
+  - Registra ações gerenciais e auditoria de usuários em `logs/acoes.log`.
 
 ## 🛠️ Tecnologias Utilizadas
 
 - **[Python 3.9+](https://www.python.org/)**
 - **[Streamlit](https://streamlit.io/):** Framework para a interface web.
-- **[Pandas](https://pandas.pydata.org/):** Tratamento, limpeza e organização estruturada dos dados.
-- **[Pillow](https://python-pillow.org/) e [Pytesseract](https://pypi.org/project/pytesseract/):** Manipulação de imagens e OCR para leitura de prints.
+- **[Pandas](https://pandas.pydata.org/):** Tratamento, limpeza e consolidação analítica dos dados.
+- **[Requests](https://pypi.org/project/requests/):** Comunicação HTTP com a API RPC do Zabbix.
 
 ## ⚙️ Instalação e Configuração
 
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/hurp-server-monitor.git
+git clone https://github.com/Pestrini/hurp-server-monitor.git
 cd hurp-server-monitor
 ```
 
@@ -54,33 +57,37 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Dependências de Sistema (Para OCR)
-Caso vá utilizar a funcionalidade de leitura de imagens, você precisará ter o **Tesseract OCR** instalado no sistema operacional.
-- **Windows:** Baixe e instale o [Tesseract at UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki).
-- **Linux:** `sudo apt-get install tesseract-ocr`
+### 3. Configuração de Variáveis de Ambiente (.env)
+Crie um arquivo `.env` na raiz do projeto contendo as credenciais de acesso da API do Zabbix:
+```env
+ZABBIX_API_URL=http://<IP_OU_DOMINIO>/zabbix/api_jsonrpc.php
+ZABBIX_API_TOKEN=<SEU_TOKEN_DE_ACESSO>
+```
+
+### 4. Gestão de Usuários Iniciais
+No primeiro acesso, utilize o usuário admin configurado previamente no `users.json` para acessar a plataforma e cadastrar os demais analistas da equipe.
 
 ## 🏃 Como Executar
 
-Se você estiver em um ambiente Windows, basta utilizar o arquivo Batch já configurado:
+Se você estiver em um ambiente Windows local ou mapeamento de rede, basta utilizar o arquivo Batch já configurado:
 ```cmd
 Iniciar_Monitoramento.bat
 ```
 
-Ou, inicie manualmente via terminal usando o Streamlit:
+Ou inicie manualmente via terminal usando o Python (método recomendado para Windows):
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
-O sistema abrirá automaticamente uma aba no seu navegador padrão (geralmente em `http://localhost:8501`).
+O sistema abrirá automaticamente uma aba no seu navegador padrão (geralmente em `http://localhost:8501`), solicitando login.
 
 ## 📖 Como Usar (Fluxo Básico)
 
-1. Selecione o **Analista de Plantão** na barra lateral.
-2. Acesse seu servidor Linux via PuTTY/SSH, rode o comando `df -h` e copie o resultado.
-3. Cole no campo de texto principal na aba de "Entrada de Dados" e clique em **Processar Texto**.
-4. Repita o processo para os servidores Windows usando o script PowerShell recomendado.
-5. Ajuste os status detectados na tabela se necessário.
-6. Edite as considerações finais geradas pelo Assistente no rodapé da página.
-7. Clique em **Salvar e Consolidar**. O arquivo de histórico será atualizado, e os botões de download dos relatórios (.txt e .html) ficarão disponíveis.
+1. Faça Login com seu usuário na tela inicial.
+2. Na aba de "Busca Zabbix", clique no botão de atualização para que o sistema puxe os dados automaticamente do servidor (Processador, RAM, Discos, Tendências).
+3. Caso exista algum servidor que não está no Zabbix, cole a saída do terminal (`df -h` / `PowerShell`) na aba "Leitura Manual".
+4. Verifique a tabela resultante e ajuste os status sugeridos pela Inteligência Preditiva, caso o seu conhecimento humano discorde da máquina.
+5. Edite as considerações finais geradas pelo Assistente no rodapé da página.
+6. Clique em **Salvar e Consolidar**. O arquivo de histórico será atualizado de forma segura, e os relatórios estarão prontos para cópia ou download.
 
 ## 🤝 Suporte e Autoria
 
@@ -88,4 +95,4 @@ Desenvolvido por **Gabriel Pestrini** (@PeSt)
 Contato: [gabriel.pestrini@unimedribeirao.com.br](mailto:gabriel.pestrini@unimedribeirao.com.br)
 
 ---
-*Este é um projeto interno de monitoramento de infraestrutura desenhado para garantir agilidade operacional para a equipe do HURP.*
+*Este é um projeto interno de monitoramento de infraestrutura desenhado para garantir agilidade operacional e previsibilidade de falhas para a equipe do HURP.*
