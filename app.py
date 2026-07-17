@@ -192,18 +192,22 @@ try:
         **1. Buscar no Zabbix**
         - Clique no botão à direita para buscar automaticamente dados de 1 ano.
 
-        **2. Servidores Linux (Não Encontrados)**
+        **2. Servidores Linux (Não Zabbix)**
         - Acesse o servidor via PuTTY ou SSH.
-        - Execute o comando: `df -h`
+        - Execute o comando unificado abaixo:
+        ```bash
+        echo "===HURP_DIAGNOSTICO===" && echo "HOST: $(hostname)" && echo "---DISK---" && df -h | grep -E 'dados|backup|binario|root|tmp|boot|/dev/mapper|/' && echo "---MEM_SWAP---" && free -m && echo "---TOP_CPU---" && ps -eo %cpu,%mem,comm --sort=-%cpu | head -n 6 && echo "---SERVICES---" && for svc in cache tomcat httpd nginx docker; do echo "$svc:$(systemctl is-active $svc 2>/dev/null || echo 'not_installed')"; done
+        ```
+        - Copie a saída completa e cole na caixa de texto.
+
+        **3. Servidores Windows (Não Zabbix)**
+        - Acesse o servidor via RDP.
+        - Abra o PowerShell **como Administrador**.
+        - Execute o comando unificado abaixo:
+        ```powershell
+        Write-Output "===HURP_DIAGNOSTICO==="; Write-Output "HOST: $env:COMPUTERNAME"; Write-Output "---DISK---"; Get-Volume | Where-Object {$_.DriveLetter -in @('C','Z','E','H','F')} | Format-Table DriveLetter, FileSystemLabel, SizeRemaining, Size -HideTableHeaders; Write-Output "---MEM_SWAP---"; Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory, TotalVirtualMemorySize, FreeVirtualMemory | Format-List; Write-Output "---TOP_CPU---"; Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 Name, CPU, WorkingSet | Format-Table -HideTableHeaders; Write-Output "---SERVICES---"; Get-Service -Name "IISADMIN", "Tomcat*", "MConnect", "IDCE", "Cache*" -ErrorAction SilentlyContinue | Select-Object Name, Status | Format-Table -HideTableHeaders
+        ```
         - Copie a saída e cole na caixa de texto.
-
-        **3. Servidores Windows (Não Encontrados)**
-        - Abra o **PowerShell**.
-        - Execute o comando:
-          `Get-CimInstance Win32_LogicalDisk | Where-Object DriveType -eq 3 | Select-Object DeviceId, VolumeName, FreeSpace, Size`
-        - Cole na **mesma** caixa de texto da esquerda.
-        - Selecione manualmente o Servidor no dropdown (ex: VIVACE_PACS_02).
-
         **4. Consolidando**
         - Revise a tabela gerada, valide a marcação de 'Importante' para os discos.
         - Revise as respostas do Assistente de IA.
@@ -309,8 +313,11 @@ try:
             
             if 'importante' not in df.columns:
                 df['importante'] = False
+            for col in ['cpu_percent', 'ram_percent', 'swap_percent', 'servicos_status', 'processos_top']:
+                if col not in df.columns:
+                    df[col] = "N/A"
         
-            df = df[['importante', 'status_alerta', 'servidor', 'particao', 'percentual_uso', 'espaco_ocupado', 'espaco_disponivel', 'capacidade_total', 'crescimento_gb_dia', 'dias_para_encher', 'ip', 'so', 'zabbix_hostname', 'raw_percent', 'fonte']]
+            df = df[['importante', 'status_alerta', 'servidor', 'particao', 'percentual_uso', 'espaco_ocupado', 'espaco_disponivel', 'capacidade_total', 'crescimento_gb_dia', 'dias_para_encher', 'ip', 'so', 'zabbix_hostname', 'raw_percent', 'fonte', 'cpu_percent', 'ram_percent', 'swap_percent', 'servicos_status', 'processos_top']]
             
             edited_df = st.data_editor(
                 df,
@@ -326,12 +333,42 @@ try:
                         "Importante",
                         help="Marcar para aparecer no relatório resumido",
                         default=False
-                    )
+                    ),
+                    "cpu_percent": None,
+                    "ram_percent": None,
+                    "swap_percent": None,
+                    "servicos_status": None,
+                    "processos_top": None
                 },
                 hide_index=True
             )
         
             st.subheader("Assistente de IA - Respostas do Plantão")
+            
+            # --- DETECTOR DE COMPORTAMENTO CLINICO UI ---
+            alertas_comportamentais = []
+            servidores_processados = set()
+            for row in edited_df.to_dict('records'):
+                srv = row['servidor']
+                if srv not in servidores_processados:
+                    servidores_processados.add(srv)
+                    cpu = row.get('cpu_percent', 'N/A')
+                    ram = row.get('ram_percent', 'N/A')
+                    swap = row.get('swap_percent', 'N/A')
+                    svcs = row.get('servicos_status', 'N/A')
+                    
+                    if cpu != 'N/A' and isinstance(cpu, (int, float)) and cpu >= 90:
+                        alertas_comportamentais.append(f"⚠️ **{srv}**: CPU alta ({cpu}%)")
+                    if ram != 'N/A' and isinstance(ram, (int, float)) and ram >= 90:
+                        alertas_comportamentais.append(f"⚠️ **{srv}**: RAM alta ({ram}%)")
+                    if swap != 'N/A' and isinstance(swap, (int, float)) and swap >= 20:
+                        alertas_comportamentais.append(f"⚠️ **{srv}**: Swap alta ({swap}%)")
+                    if svcs != 'N/A' and any('not_installed' not in s and 'active' not in s.lower() and 'running' not in s.lower() for s in str(svcs).split('|')):
+                        alertas_comportamentais.append(f"⚠️ **{srv}**: Serviços com problema ({svcs})")
+            
+            if alertas_comportamentais:
+                st.warning("🚨 **Alertas Comportamentais Detectados:**\n\n" + "\n".join(alertas_comportamentais))
+                
             answers = pre_fill_answers(edited_df.to_dict('records'))
         
             q1 = st.text_area("1. QUAIS SERVIDORES APRESENTARAM PROBLEMA?", value=answers["q1"])
@@ -344,6 +381,10 @@ try:
         
             if st.button("Salvar e Consolidar", type="primary"):
                 final_data = edited_df.to_dict('records')
+                
+                ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                for row in final_data:
+                    row['timestamp'] = ts
             
                 save_to_csv(final_data)
                 action_logger.info(f"Analista {analista} salvou e consolidou os dados.")
@@ -400,28 +441,28 @@ try:
                             print-color-adjust: exact !important;
                         }}
                     }}
-                    .grid {{ display: flex; flex-wrap: wrap; gap: 10px; }}
-                    .card {{ width: 180px; padding: 10px; border-radius: 8px; color: white; box-shadow: 1px 1px 3px rgba(0,0,0,0.3); }}
-                    .card h4 {{ margin: 0 0 5px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 3px; }}
-                    .card .part {{ font-size: 12px; margin-bottom: 5px; }}
-                    .card .uso {{ font-size: 18px; font-weight: bold; margin: 0; }}
-                    .card .livre {{ font-size: 11px; opacity: 0.9; margin-top: 3px; }}
+                    .grid {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+                    .card {{ width: 140px; padding: 8px; border-radius: 6px; color: white; box-shadow: 1px 1px 3px rgba(0,0,0,0.3); }}
+                    .card h4 {{ margin: 0 0 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 2px; }}
+                    .card .part {{ font-size: 11px; margin-bottom: 4px; }}
+                    .card .uso {{ font-size: 15px; font-weight: bold; margin: 0; }}
+                    .card .livre {{ font-size: 10px; opacity: 0.9; margin-top: 2px; }}
                     .normal {{ background-color: #2e7d32 !important; }}
                     .estável {{ background-color: #81c784 !important; color: #000 !important; }}
                     .atenção {{ background-color: #f57f17 !important; }}
                     .crítico {{ background-color: #c62828 !important; }}
                     .inativo {{ background-color: #607d8b !important; }}
                     .qa {{ background-color: #f4f4f4 !important; padding: 15px; border-left: 5px solid #1976d2 !important; margin-bottom: 20px; }}
-                    .header-visual {{ background-color: #1976d2 !important; color: white !important; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }}
-                    .legend {{ display: flex; gap: 15px; flex-wrap: wrap; margin-top: 30px; font-size: 14px; align-items: center; justify-content: center; background: #f4f4f4; padding: 10px; border-radius: 8px; }}
+                    .header-visual {{ background-color: #1976d2 !important; color: white !important; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; }}
+                    .legend {{ display: flex; gap: 15px; flex-wrap: wrap; margin-top: 30px; font-size: 13px; align-items: center; justify-content: center; background: #f4f4f4; padding: 8px; border-radius: 8px; }}
                     .leg-item {{ display: flex; align-items: center; gap: 5px; }}
-                    .dot {{ width: 15px; height: 15px; border-radius: 50%; display: inline-block; }}
+                    .dot {{ width: 12px; height: 12px; border-radius: 50%; display: inline-block; }}
                     </style></head><body>
                     <div class="header-visual">
                         <h1 style="margin: 0;">{title}</h1>
-                        <p style="margin: 5px 0 0 0; font-size: 16px;">Analista Responsável: <b>{analista_str}</b> | Data: <b>{ts} ({weekday_str})</b></p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">Analista Responsável: <b>{analista_str}</b> | Data: <b>{ts} ({weekday_str})</b></p>
                     </div>
-                    <h2>Status dos Discos</h2>
+                    <h2>Status dos Discos e Comportamento</h2>
                     """
                     
                     grouped_data = {}
@@ -440,7 +481,21 @@ try:
                         if zbx_info and zbx_info != "N/A":
                             ip_info = f"{ip_info} - {zbx_info}"
                             
-                        html_content += f"<h3 style='margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #ccc; color: #333;'>🖥️ {friendly} ({ip_info})</h3><div class='grid'>"
+                        cpu = rows[0].get('cpu_percent', 'N/A')
+                        ram = rows[0].get('ram_percent', 'N/A')
+                        swap = rows[0].get('swap_percent', 'N/A')
+                        svcs = rows[0].get('servicos_status', 'N/A')
+                        procs = rows[0].get('processos_top', 'N/A')
+                        
+                        beh_html = f"<div style='font-size: 13px; color: #555; margin-bottom: 10px;'>"
+                        beh_html += f"<b>CPU:</b> {cpu}% | <b>RAM:</b> {ram}% | <b>Swap:</b> {swap}%"
+                        if svcs != 'N/A': beh_html += f"<br><b>Serviços:</b> {svcs}"
+                        if procs != 'N/A': beh_html += f"<br><b>Top Proc:</b> {procs}"
+                        beh_html += "</div>"
+                            
+                        html_content += f"<h3 style='margin-top: 20px; margin-bottom: 5px; border-bottom: 2px solid #ccc; color: #333;'>🖥️ {friendly} ({ip_info})</h3>"
+                        html_content += beh_html
+                        html_content += "<div class='grid'>"
                         
                         for row in rows:
                             status = row.get('status_alerta', 'NORMAL').upper()
@@ -461,17 +516,17 @@ try:
                                 try:
                                     d = float(dias_val)
                                     if d > 365:
-                                        dias_str = f'<div style="font-size:12px; margin-top:5px; color:white; font-weight:bold; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px;">Enche em: Mais de 1 ano</div>'
+                                        dias_str = f'<div style="font-size:10px; margin-top:4px; color:white; font-weight:bold; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">Enche em: > 1 ano</div>'
                                     else:
                                         color = "red" if d < 30 and d >= 0 else "white"
-                                        dias_str = f'<div style="font-size:12px; margin-top:5px; color:{color}; font-weight:bold; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px;">Enche em: {int(d)} dias</div>'
+                                        dias_str = f'<div style="font-size:10px; margin-top:4px; color:{color}; font-weight:bold; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">Enche em: {int(d)} dias</div>'
                                 except:
                                     pass
                             
                             card_inner = f"""
-                            <div style="font-size:14px; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.3); padding-bottom:3px;"><b>{row['particao']}</b></div>
-                            <div style="font-size:18px; font-weight:bold; margin:0;">Uso: {row['percentual_uso']}</div>
-                            <div style="font-size:11px; opacity:0.9; margin-top:3px;">Livre: {row['espaco_disponivel']}</div>
+                            <div style="font-size:13px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.3); padding-bottom:2px;"><b>{row['particao']}</b></div>
+                            <div style="font-size:15px; font-weight:bold; margin:0;">Uso: {row['percentual_uso']}</div>
+                            <div style="font-size:10px; opacity:0.9; margin-top:2px;">Livre: {row['espaco_disponivel']}</div>
                             {dias_str}
                             """
                             html_content += f'<div class="card {cls}">{card_inner}</div>'

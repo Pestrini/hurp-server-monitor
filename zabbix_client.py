@@ -95,25 +95,51 @@ def is_important_disk(server_name, part_name):
 def fetch_zabbix_data(months=6):
     hostids = list(HOSTS.keys())
     
+    # 1. Busca os itemids do Zabbix (vfs.fs.size, CPU, Mem, Swap)
     items = rpc_call("item.get", {
-        "output": ["itemid", "name", "key_", "value_type", "hostid", "lastvalue"],
+        "output": ["itemid", "name", "key_", "lastvalue", "hostid"],
         "hostids": hostids
     })
     
+    # Extrair metricas comportamentais
+    server_metrics = {}
+    for hid in hostids:
+        server_metrics[hid] = {"cpu": "N/A", "ram": "N/A", "swap": "N/A"}
+        
     partitions = {}
     for item in items:
+        hid = item["hostid"]
+        key = item["key_"]
+        
+        # Metricas Comportamentais
+        keys_of_interest = ["system.cpu.util[,,avg5]", "system.cpu.util[all,system,avg1]", 
+                            "vm.memory.size[pavailable]", "vm.memory.size[pused]", 
+                            "system.swap.size[,pfree]", "system.swap.free.percent"]
+        if key in keys_of_interest:
+            val = float(item["lastvalue"]) if item["lastvalue"] else 0.0
+            if key in ["system.cpu.util[,,avg5]", "system.cpu.util[all,system,avg1]"]:
+                server_metrics[hid]["cpu"] = round(val, 1)
+            elif key == "vm.memory.size[pavailable]":
+                server_metrics[hid]["ram"] = round(100.0 - val, 1)
+            elif key == "vm.memory.size[pused]":
+                server_metrics[hid]["ram"] = round(val, 1)
+            elif key == "system.swap.size[,pfree]":
+                server_metrics[hid]["swap"] = round(100.0 - val, 1)
+            elif key == "system.swap.free.percent":
+                if val > 0: server_metrics[hid]["swap"] = round(100.0 - val, 1)
+                
+        # Discos
         import re
-        match = re.match(r"^vfs\.fs\.size\[(.*),(used|total)\]$", item["key_"])
+        match = re.match(r"^vfs\.fs\.size\[(.*),(used|total)\]$", key)
         if match:
             fs = match.group(1)
             metric = match.group(2)
-            hid = item["hostid"]
             
             if hid not in partitions:
                 partitions[hid] = {}
             if fs not in partitions[hid]:
                 partitions[hid][fs] = {}
-                
+            
             if metric == "used":
                 partitions[hid][fs]["used_itemid"] = item["itemid"]
                 partitions[hid][fs]["last_used"] = float(item["lastvalue"])
@@ -161,6 +187,8 @@ def fetch_zabbix_data(months=6):
                     if m > 0:
                         bytes_remaining = total_bytes - last_used
                         dias_para_encher = round(bytes_remaining / m)
+                        if dias_para_encher > 9999:
+                            dias_para_encher = 9999
             
             status = get_smart_status(percent, dias_para_encher, crescimento_dia_gb)
             is_imp = is_important_disk(server_info["name"], fs)
@@ -201,7 +229,12 @@ def fetch_zabbix_data(months=6):
                 "raw_percent": percent,
                 "status_alerta": status,
                 "importante": is_imp,
-                "fonte": "Zabbix"
+                "fonte": "Zabbix",
+                "cpu_percent": server_metrics[hid]["cpu"],
+                "ram_percent": server_metrics[hid]["ram"],
+                "swap_percent": server_metrics[hid]["swap"],
+                "servicos_status": "N/A",
+                "processos_top": "N/A"
             })
             
     return results

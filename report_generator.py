@@ -91,7 +91,32 @@ def generate_txt_report(parsed_data: List[Dict[str, Any]], answers: Dict[str, st
         line = f"• {srv_name} ({ident_str}) - Partição {row['particao']}: Uso em {row['percentual_uso']}{alert_tag}{proj_str}"
         report.append(line)
         
-    report.append("\n2. RESPOSTAS OBRIGATÓRIAS DO PLANTÃO:")
+    report.append("\n2. ANÁLISE DE COMPORTAMENTO CLÍNICO (CPU, RAM, Serviços):")
+    report.append("------------------------------------------------------------")
+    servidores_processados = set()
+    for row in parsed_data:
+        srv_name = row['servidor']
+        if srv_name not in servidores_processados:
+            servidores_processados.add(srv_name)
+            cpu = row.get('cpu_percent', 'N/A')
+            ram = row.get('ram_percent', 'N/A')
+            swap = row.get('swap_percent', 'N/A')
+            svcs = row.get('servicos_status', 'N/A')
+            procs = row.get('processos_top', 'N/A')
+            
+            # Formata status
+            cpu_str = f"{cpu}%" if cpu != 'N/A' else 'N/A'
+            ram_str = f"{ram}%" if ram != 'N/A' else 'N/A'
+            swap_str = f"{swap}%" if swap != 'N/A' else 'N/A'
+            
+            line1 = f"• {srv_name} - CPU: {cpu_str} | RAM: {ram_str} | Swap: {swap_str}"
+            if svcs != 'N/A':
+                line1 += f"\n  - Servicos: {svcs}"
+            if procs != 'N/A':
+                line1 += f"\n  - Top CPU: {procs}"
+            report.append(line1)
+            
+    report.append("\n3. RESPOSTAS OBRIGATÓRIAS DO PLANTÃO:")
     report.append("------------------------------------------------------------")
     
     report.append("QUAIS SERVIDORES APRESENTARAM PROBLEMA?")
@@ -120,15 +145,9 @@ def save_to_csv(parsed_data: List[Dict[str, Any]]):
         df = df.drop(columns=['raw_percent'])
         
     base_cols = ["timestamp", "servidor", "ip", "so", "particao", "capacidade_total", "espaco_ocupado", "espaco_disponivel", "percentual_uso", "status_alerta"]
-    new_cols = []
-    if "zabbix_hostname" in df.columns:
-        new_cols.append("zabbix_hostname")
-    if "crescimento_gb_dia" in df.columns:
-        new_cols.append("crescimento_gb_dia")
-    if "dias_para_encher" in df.columns:
-        new_cols.append("dias_para_encher")
-        
-    cols = base_cols + new_cols
+    opt_cols = ["zabbix_hostname", "crescimento_gb_dia", "dias_para_encher", "cpu_percent", "ram_percent", "swap_percent", "servicos_status", "processos_top"]
+    
+    cols = base_cols + opt_cols
     
     # Preencher colunas que faltam caso venha do OCR/Manual
     for c in cols:

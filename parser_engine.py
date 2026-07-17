@@ -104,38 +104,58 @@ def identify_server_from_text(text: str) -> Optional[str]:
     return None
 
 def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]]:
-    """Faz o parse do output de df -h do linux"""
-    raw_lines = text.strip().split('\n')
-    lines = []
+    """Faz o parse do output de df -h ou comando unificado"""
+    lines = [line.strip() for line in text.strip().split('\n')]
+    
+    sections = {"HOST": "", "DISK": [], "MEM_SWAP": [], "TOP_CPU": [], "SERVICES": []}
+    current_section = "DISK" # default if missing
+    
     i = 0
-    while i < len(raw_lines):
-        line = raw_lines[i].strip()
+    while i < len(lines):
+        line = lines[i]
         if not line:
-            i += 1
-            continue
-        parts = re.split(r'\s+', line)
-        if len(parts) == 1 and i + 1 < len(raw_lines):
-            # Broken line, merge with next
-            line = line + " " + raw_lines[i+1].strip()
-            i += 1
-        lines.append(line)
+            i += 1; continue
+            
+        if line.startswith("HOST:"):
+            sections["HOST"] = line.replace("HOST:", "").strip()
+        elif line == "---DISK---":
+            current_section = "DISK"
+        elif line == "---MEM_SWAP---":
+            current_section = "MEM_SWAP"
+        elif line == "---TOP_CPU---":
+            current_section = "TOP_CPU"
+        elif line == "---SERVICES---":
+            current_section = "SERVICES"
+        elif line.startswith("===HURP"):
+            pass
+        elif current_section:
+            if current_section == "DISK":
+                parts = re.split(r'\s+', line)
+                if len(parts) == 1 and i + 1 < len(lines) and not lines[i+1].startswith("---"):
+                    line = line + " " + lines[i+1].strip()
+                    i += 1
+                if line: sections[current_section].append(line)
+            else:
+                sections[current_section].append(line)
         i += 1
         
     results = []
     
     if not server_name:
-        server_name = identify_server_from_text(text)
+        if sections["HOST"]:
+            server_name = identify_server_from_text(sections["HOST"])
+        if not server_name:
+            server_name = identify_server_from_text(text)
         
     server_info = SERVERS.get(server_name, {"ip": "Desconhecido", "so": "Linux"})
     
-    for line in lines:
+    # Processa Discos
+    for line in sections["DISK"]:
         if ("Caption" in line and "Size" in text) or "DeviceId" in line or "--------" in line:
-            # Pula cabeçalho do wmic e PowerShell
             continue
             
         parts = re.split(r'\s+', line.strip())
-        if len(parts) >= 6 and "dev/mapper" in line or "%" in line: # Standard df -h format
-            # Ex: /dev/mapper/rhel-dados 855G 693G 163G 81% /dados
+        if len(parts) >= 6 and "dev/mapper" in line or "%" in line:
             particao = parts[-1]
             capacidade = parts[1]
             ocupado = parts[2]
@@ -146,8 +166,7 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             except ValueError:
                 perc = 0.0
                 
-        elif len(parts) >= 3 and parts[0].endswith(':'): # Formato wmic e PowerShell (Caption/DeviceId, [VolumeName], FreeSpace, Size)
-            # Ex: C:       Windows  45749219328   213645012992
+        elif len(parts) >= 3 and parts[0].endswith(':'):
             particao = parts[0]
             volume_parts = parts[1:-2]
             if volume_parts:
@@ -172,11 +191,7 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             disponivel = f"{free_gb:.1f} GB"
             perc = (ocupado_gb / total_gb * 100) if total_gb > 0 else 0.0
             
-        elif len(parts) == 3 or len(parts) == 4: # Format from PDF table (Partition, Used, Available)
-            # Ex: /dev/mapper/rhel-dados (/dados) 693G 163G
-            # or: /dev/mapper/rhel-root em / 11G 73G
-            # This requires custom parsing since capacity and % are missing.
-            # We'll calculate them.
+        elif len(parts) == 3 or len(parts) == 4:
             particao = parts[0]
             if "(" in parts[1]:
                 particao = parts[1].strip("()")
@@ -190,7 +205,6 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
                 ocupado = parts[1]
                 disponivel = parts[2]
                 
-            # Function to convert G/M/K/T to bytes for calculation
             def to_gb(val_str):
                 val_str = val_str.replace(',', '.')
                 num = re.findall(r'[\d\.]+', val_str)
@@ -226,7 +240,84 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             "espaco_disponivel": disponivel,
             "percentual_uso": f"{int(perc)}%",
             "status_alerta": status,
-            "raw_percent": perc
+            "raw_percent": perc,
+            "cpu_percent": "N/A",
+            "ram_percent": "N/A",
+            "swap_percent": "N/A",
+            "servicos_status": "N/A",
+            "processos_top": "N/A"
         })
         
+    # Processa Memoria, CPU e Servicos (se aplicável ao primeiro resultado para salvar a sessao inteira)
+    if results and (sections["MEM_SWAP"] or sections["TOP_CPU"] or sections["SERVICES"]):
+        # Valores globais
+        ram_perc = "N/A"
+        swap_perc = "N/A"
+        top_procs = []
+        svc_stats = []
+        
+        # MEM
+        if server_info["so"] == "Linux":
+            for line in sections["MEM_SWAP"]:
+                if line.startswith("Mem:"):
+                    p = re.split(r'\s+', line)
+                    if len(p) >= 4:
+                        tot, us = float(p[1]), float(p[2])
+                        if tot > 0: ram_perc = round((us/tot)*100, 1)
+                elif line.startswith("Swap:"):
+                    p = re.split(r'\s+', line)
+                    if len(p) >= 4:
+                        tot, us = float(p[1]), float(p[2])
+                        if tot > 0: swap_perc = round((us/tot)*100, 1)
+        else: # Windows
+            mem_data = {}
+            for line in sections["MEM_SWAP"]:
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    try:
+                        mem_data[k.strip()] = float(v.strip())
+                    except: pass
+            if "TotalVisibleMemorySize" in mem_data and "FreePhysicalMemory" in mem_data:
+                tot = mem_data["TotalVisibleMemorySize"]
+                free = mem_data["FreePhysicalMemory"]
+                if tot > 0: ram_perc = round(((tot-free)/tot)*100, 1)
+            if "TotalVirtualMemorySize" in mem_data and "FreeVirtualMemory" in mem_data:
+                tot = mem_data["TotalVirtualMemorySize"]
+                free = mem_data["FreeVirtualMemory"]
+                if tot > 0: swap_perc = round(((tot-free)/tot)*100, 1)
+                
+        # CPU
+        for line in sections["TOP_CPU"]:
+            if not line or "CPU" in line or "WorkingSet" in line or "Name" in line: continue
+            parts = re.split(r'\s+', line.strip())
+            if server_info["so"] == "Linux" and len(parts) >= 3:
+                top_procs.append(f"{parts[-1]} ({parts[0]}%)")
+            elif server_info["so"] == "Windows" and len(parts) >= 2:
+                # Windows format: Name CPU WorkingSet -> pode ter multiplas partes no nome
+                # O ideal é pegar o Nome e CPU
+                cpu = parts[-2]
+                name = " ".join(parts[:-2])
+                top_procs.append(f"{name} ({cpu}%)")
+                
+        # Services
+        for line in sections["SERVICES"]:
+            if not line or "Status" in line or "Name" in line or "----" in line: continue
+            if ":" in line: # Linux
+                svc, st = line.split(":", 1)
+                if st.strip() != "not_installed":
+                    svc_stats.append(f"{svc.strip()} ({st.strip()})")
+            else: # Windows
+                parts = re.split(r'\s{2,}', line.strip()) # Windows format table usually has large spaces
+                if len(parts) == 1:
+                    parts = re.split(r'\s+', line.strip())
+                if len(parts) >= 2:
+                    svc_stats.append(f"{parts[0].strip()} ({parts[1].strip()})")
+                    
+        # Apply to all disks of this server
+        for r in results:
+            r["ram_percent"] = ram_perc
+            r["swap_percent"] = swap_perc
+            if top_procs: r["processos_top"] = " | ".join(top_procs[:3])
+            if svc_stats: r["servicos_status"] = " | ".join(svc_stats)
+            
     return results
