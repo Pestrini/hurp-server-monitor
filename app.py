@@ -71,6 +71,13 @@ try:
     if "parsed_data" not in st.session_state:
         st.session_state["parsed_data"] = []
 
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] {
+            padding-top: 1rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
     if os.path.exists("hurp_server_monitor_logo.png"):
         st.sidebar.image("hurp_server_monitor_logo.png", use_container_width=True)
 
@@ -93,15 +100,60 @@ try:
                 else:
                     st.error("Usuário ou senha inválidos.")
         st.stop()
-
     st.sidebar.title(f"Bem-vindo, {st.session_state['name']}!")
-    if st.sidebar.button("Sair (Logout)"):
-        st.session_state["logged_in"] = False
-        st.session_state["username"] = ""
-        st.session_state["name"] = ""
-        st.session_state["role"] = ""
-        st.rerun()
+    
+    with st.sidebar.expander("📖 Passo a Passo & Comandos", expanded=False):
+        st.markdown('''
+        **1. Buscar no Zabbix**
+        - Clique no botão à direita para buscar automaticamente dados de 1 ano.
+
+        **2. Servidores Linux (Não Zabbix)**
+        - Acesse o servidor via PuTTY ou SSH.
+        - Execute o comando unificado abaixo:
+        ```bash
+        echo "===HURP_DIAGNOSTICO===" && echo "HOST: $(hostname)" && echo "---DISK---" && df -h | grep -E 'dados|backup|binario|root|tmp|boot|/dev/mapper|/' && echo "---MEM_SWAP---" && free -m && echo "---TOP_CPU---" && ps -eo %cpu,%mem,comm --sort=-%cpu | head -n 6 && echo "---SERVICES---" && for svc in cache tomcat httpd nginx docker; do echo "$svc:$(systemctl is-active $svc 2>/dev/null || echo 'not_installed')"; done
+        ```
+        - Copie a saída completa e cole na caixa de texto.
+
+        **3. Servidores Windows (Não Zabbix)**
+        - Acesse o servidor via RDP.
+        - Abra o PowerShell **como Administrador**.
+        - Execute o comando unificado abaixo:
+        ```powershell
+        Write-Output "===HURP_DIAGNOSTICO==="; Write-Output "HOST: $env:COMPUTERNAME"; Write-Output "---DISK---"; Get-Volume | Where-Object {$_.DriveLetter -in @('C','Z','E','H','F')} | Format-Table DriveLetter, FileSystemLabel, SizeRemaining, Size -HideTableHeaders; Write-Output "---MEM_SWAP---"; Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory, TotalVirtualMemorySize, FreeVirtualMemory | Format-List; Write-Output "---TOP_CPU---"; Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 Name, CPU, WorkingSet | Format-Table -HideTableHeaders; Write-Output "---SERVICES---"; Get-Service -Name "IISADMIN", "Tomcat*", "MConnect", "IDCE", "Cache*" -ErrorAction SilentlyContinue | Select-Object Name, Status | Format-Table -HideTableHeaders
+        ```
+        - Copie a saída e cole na caixa de texto.
+        **4. Consolidando**
+        - Revise a tabela gerada, valide a marcação de 'Importante' para os discos.
+        - Revise as respostas do Assistente de IA.
+        - Clique em **Salvar e Consolidar**!
+        ''')
+
+    with st.sidebar.expander("🖥️ Lista de Servidores", expanded=False):
+        from parser_engine import SERVERS
         
+        st.markdown("**Monitorados pelo Zabbix (Automático):**")
+        zabbix_list = []
+        manual_list = []
+        for srv, info in SERVERS.items():
+            if "zabbix_hostid" in info:
+                zabbix_list.append([srv, info.get("so", ""), info.get("ip", ""), info.get("hostname", "")])
+            else:
+                manual_list.append([srv, info.get("so", ""), info.get("ip", ""), info.get("hostname", "")])
+                
+        if zabbix_list:
+            df_zabbix = pd.DataFrame(zabbix_list, columns=["Servidor", "SO", "IP", "Hostname"])
+            st.dataframe(df_zabbix, hide_index=True)
+        else:
+            st.write("Nenhum")
+            
+        st.markdown("**NÃO Monitorados (Copiar e Colar):**")
+        if manual_list:
+            df_manuais = pd.DataFrame(manual_list, columns=["Servidor", "SO", "IP", "Hostname"])
+            st.dataframe(df_manuais, hide_index=True)
+        else:
+            st.write("Nenhum")
+
     analista = st.session_state["name"]
 
     if st.session_state["role"] == "admin":
@@ -157,10 +209,11 @@ try:
                                 if st.form_submit_button("Excluir"):
                                     if selected_user == st.session_state["username"]:
                                         st.error("Você não pode excluir a si mesmo.")
-                                    elif auth_manager.delete_user(selected_user, st.session_state["username"]):
-                                        st.session_state["editing_user"] = None
-                                        st.success("Excluído!")
-                                        st.rerun()
+                                    else:
+                                        if auth_manager.delete_user(selected_user, st.session_state["username"]):
+                                            st.session_state["editing_user"] = None
+                                            st.success("Excluído!")
+                                            st.rerun()
                             with c3:
                                 if st.form_submit_button("Cancelar"):
                                     st.session_state["editing_user"] = None
@@ -175,6 +228,8 @@ try:
                             if st.button("Editar", key=f"btn_edit_{u}"):
                                 st.session_state["editing_user"] = u
                                 st.rerun()
+
+    st.sidebar.markdown("---")
     
     with st.sidebar.expander("🔐 Alterar Minha Senha", expanded=False):
         with st.form("change_pass_form", clear_on_submit=True):
@@ -185,59 +240,15 @@ try:
                     st.success("Senha alterada com sucesso!")
                 else:
                     st.error("Senha atual incorreta.")
+                    
+    if st.sidebar.button("Sair (Logout)", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["username"] = ""
+        st.session_state["name"] = ""
+        st.session_state["role"] = ""
+        st.rerun()
 
-    st.sidebar.markdown("---")
-    with st.sidebar.expander("📖 Passo a Passo & Comandos", expanded=True):
-        st.markdown("""
-        **1. Buscar no Zabbix**
-        - Clique no botão à direita para buscar automaticamente dados de 1 ano.
 
-        **2. Servidores Linux (Não Zabbix)**
-        - Acesse o servidor via PuTTY ou SSH.
-        - Execute o comando unificado abaixo:
-        ```bash
-        echo "===HURP_DIAGNOSTICO===" && echo "HOST: $(hostname)" && echo "---DISK---" && df -h | grep -E 'dados|backup|binario|root|tmp|boot|/dev/mapper|/' && echo "---MEM_SWAP---" && free -m && echo "---TOP_CPU---" && ps -eo %cpu,%mem,comm --sort=-%cpu | head -n 6 && echo "---SERVICES---" && for svc in cache tomcat httpd nginx docker; do echo "$svc:$(systemctl is-active $svc 2>/dev/null || echo 'not_installed')"; done
-        ```
-        - Copie a saída completa e cole na caixa de texto.
-
-        **3. Servidores Windows (Não Zabbix)**
-        - Acesse o servidor via RDP.
-        - Abra o PowerShell **como Administrador**.
-        - Execute o comando unificado abaixo:
-        ```powershell
-        Write-Output "===HURP_DIAGNOSTICO==="; Write-Output "HOST: $env:COMPUTERNAME"; Write-Output "---DISK---"; Get-Volume | Where-Object {$_.DriveLetter -in @('C','Z','E','H','F')} | Format-Table DriveLetter, FileSystemLabel, SizeRemaining, Size -HideTableHeaders; Write-Output "---MEM_SWAP---"; Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory, TotalVirtualMemorySize, FreeVirtualMemory | Format-List; Write-Output "---TOP_CPU---"; Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 Name, CPU, WorkingSet | Format-Table -HideTableHeaders; Write-Output "---SERVICES---"; Get-Service -Name "IISADMIN", "Tomcat*", "MConnect", "IDCE", "Cache*" -ErrorAction SilentlyContinue | Select-Object Name, Status | Format-Table -HideTableHeaders
-        ```
-        - Copie a saída e cole na caixa de texto.
-        **4. Consolidando**
-        - Revise a tabela gerada, valide a marcação de 'Importante' para os discos.
-        - Revise as respostas do Assistente de IA.
-        - Clique em **Salvar e Consolidar**!
-        """)
-
-    with st.sidebar.expander("🖥️ Lista de Servidores", expanded=False):
-        from parser_engine import SERVERS
-        
-        st.markdown("**Monitorados pelo Zabbix (Automático):**")
-        zabbix_list = []
-        manual_list = []
-        for srv, info in SERVERS.items():
-            if "zabbix_hostid" in info:
-                zabbix_list.append([srv, info.get("so", ""), info.get("ip", ""), info.get("hostname", "")])
-            else:
-                manual_list.append([srv, info.get("so", ""), info.get("ip", ""), info.get("hostname", "")])
-                
-        if zabbix_list:
-            df_zabbix = pd.DataFrame(zabbix_list, columns=["Servidor", "SO", "IP", "Hostname"])
-            st.dataframe(df_zabbix, hide_index=True)
-        else:
-            st.write("Nenhum")
-            
-        st.markdown("**NÃO Monitorados (Copiar e Colar):**")
-        if manual_list:
-            df_manuais = pd.DataFrame(manual_list, columns=["Servidor", "SO", "IP", "Hostname"])
-            st.dataframe(df_manuais, hide_index=True)
-        else:
-            st.write("Nenhum")
 
     st.title("HURP Server Monitor")
 
@@ -318,6 +329,8 @@ try:
             for col in ['cpu_percent', 'ram_percent', 'swap_percent', 'servicos_status', 'processos_top']:
                 if col not in df.columns:
                     df[col] = "N/A"
+                else:
+                    df[col] = df[col].astype(str)
         
             df = df[['importante', 'status_alerta', 'servidor', 'particao', 'percentual_uso', 'espaco_ocupado', 'espaco_disponivel', 'capacidade_total', 'crescimento_gb_dia', 'dias_para_encher', 'ip', 'so', 'zabbix_hostname', 'raw_percent', 'fonte', 'cpu_percent', 'ram_percent', 'swap_percent', 'servicos_status', 'processos_top']]
             
@@ -336,11 +349,11 @@ try:
                         help="Marcar para aparecer no relatório resumido",
                         default=False
                     ),
-                    "cpu_percent": None,
-                    "ram_percent": None,
-                    "swap_percent": None,
-                    "servicos_status": None,
-                    "processos_top": None
+                    "cpu_percent": st.column_config.TextColumn("CPU %"),
+                    "ram_percent": st.column_config.TextColumn("RAM %"),
+                    "swap_percent": st.column_config.TextColumn("Swap %"),
+                    "servicos_status": st.column_config.TextColumn("Serviços"),
+                    "processos_top": st.column_config.TextColumn("Top Processos")
                 },
                 hide_index=True
             )
@@ -359,13 +372,19 @@ try:
                     swap = row.get('swap_percent', 'N/A')
                     svcs = row.get('servicos_status', 'N/A')
                     
-                    if cpu != 'N/A' and isinstance(cpu, (int, float)) and cpu >= 90:
-                        alertas_comportamentais.append(f"⚠️ **{srv}**: CPU alta ({cpu}%)")
-                    if ram != 'N/A' and isinstance(ram, (int, float)) and ram >= 90:
-                        alertas_comportamentais.append(f"⚠️ **{srv}**: RAM alta ({ram}%)")
-                    if swap != 'N/A' and isinstance(swap, (int, float)) and swap >= 20:
-                        alertas_comportamentais.append(f"⚠️ **{srv}**: Swap alta ({swap}%)")
-                    if svcs != 'N/A' and any('not_installed' not in s and 'active' not in s.lower() and 'running' not in s.lower() for s in str(svcs).split('|')):
+                    if cpu != 'N/A' and cpu != 'nan':
+                        try:
+                            if float(cpu) >= 90: alertas_comportamentais.append(f"⚠️ **{srv}**: CPU alta ({cpu}%)")
+                        except: pass
+                    if ram != 'N/A' and ram != 'nan':
+                        try:
+                            if float(ram) >= 90: alertas_comportamentais.append(f"⚠️ **{srv}**: RAM alta ({ram}%)")
+                        except: pass
+                    if swap != 'N/A' and swap != 'nan':
+                        try:
+                            if float(swap) >= 20: alertas_comportamentais.append(f"⚠️ **{srv}**: Swap alta ({swap}%)")
+                        except: pass
+                    if svcs != 'N/A' and svcs != 'nan' and any('not_installed' not in s and 'active' not in s.lower() and 'running' not in s.lower() for s in str(svcs).split('|')):
                         alertas_comportamentais.append(f"⚠️ **{srv}**: Serviços com problema ({svcs})")
             
             if alertas_comportamentais:
@@ -660,8 +679,37 @@ try:
             if not df_3_meses.empty:
                 df_3_meses['data'] = df_3_meses['timestamp'].dt.date
                 df_3_meses['chave'] = df_3_meses['servidor'] + " - " + df_3_meses['particao'].str.replace(':', '', regex=False)
-                chart_data = df_3_meses.pivot_table(index='data', columns='chave', values='percentual_num', aggfunc='mean')
-                st.line_chart(chart_data)
+                
+                col_f1, col_f2 = st.columns(2)
+                
+                # Lista de servidores unicos disponiveis no CSV
+                servidores_disponiveis = sorted(df_3_meses['servidor'].unique().tolist())
+                
+                with col_f1:
+                    servidor_filtro = st.selectbox("Filtrar por Servidor", ["Todos"] + servidores_disponiveis)
+                
+                # Filtrar o DataFrame de acordo com o servidor escolhido
+                if servidor_filtro != "Todos":
+                    df_filtrado = df_3_meses[df_3_meses['servidor'] == servidor_filtro]
+                    particoes_disponiveis = sorted(df_filtrado['particao'].unique().tolist())
+                    
+                    with col_f2:
+                        particao_filtro = st.multiselect(
+                            "Filtrar por Partição / Disco (Deixe vazio para ver todos deste servidor)", 
+                            particoes_disponiveis, 
+                            default=particoes_disponiveis
+                        )
+                    
+                    if particao_filtro:
+                        df_filtrado = df_filtrado[df_filtrado['particao'].isin(particao_filtro)]
+                else:
+                    df_filtrado = df_3_meses
+                    
+                if not df_filtrado.empty:
+                    chart_data = df_filtrado.pivot_table(index='data', columns='chave', values='percentual_num', aggfunc='mean')
+                    st.line_chart(chart_data)
+                else:
+                    st.warning("Nenhum dado encontrado para os filtros selecionados.")
             else:
                 st.info("Não há dados suficientes nos últimos 3 meses para gerar o gráfico.")
             

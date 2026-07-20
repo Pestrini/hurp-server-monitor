@@ -112,7 +112,6 @@ def fetch_zabbix_data(months=6):
         "output": ["itemid", "name", "key_", "lastvalue", "hostid"],
         "hostids": hostids
     })
-    
     # Extrair metricas comportamentais
     server_metrics = {}
     for hid in hostids:
@@ -124,21 +123,35 @@ def fetch_zabbix_data(months=6):
         key = item["key_"]
         
         # Metricas Comportamentais
-        keys_of_interest = ["system.cpu.util[,,avg5]", "system.cpu.util[all,system,avg1]", 
-                            "vm.memory.size[pavailable]", "vm.memory.size[pused]", 
-                            "system.swap.size[,pfree]", "system.swap.free.percent"]
+        keys_of_interest = [
+            "system.cpu.util[,,avg5]", "system.cpu.util[all,system,avg1]", 
+            "system.cpu.util", "perf_counter[\\Processor Information(_Total)\\% Processor Time]",
+            "vm.memory.size[pavailable]", "vm.memory.size[pused]", "vm.memory.util",
+            "system.swap.size[,pfree]", "system.swap.free.percent",
+            "perf_counter[\\Paging File(_Total)\\% Usage]",
+            "perf_counter[\\Memory\\% Committed Bytes In Use]"
+        ]
+        
         if key in keys_of_interest:
             val = float(item["lastvalue"]) if item["lastvalue"] else 0.0
-            if key in ["system.cpu.util[,,avg5]", "system.cpu.util[all,system,avg1]"]:
+            
+            # CPU
+            if key in ["system.cpu.util[,,avg5]", "system.cpu.util[all,system,avg1]", "system.cpu.util", "perf_counter[\\Processor Information(_Total)\\% Processor Time]"]:
                 server_metrics[hid]["cpu"] = round(val, 1)
-            elif key == "vm.memory.size[pavailable]":
+                
+            # RAM
+            elif key in ["vm.memory.size[pavailable]"]:
                 server_metrics[hid]["ram"] = round(100.0 - val, 1)
-            elif key == "vm.memory.size[pused]":
+            elif key in ["vm.memory.size[pused]", "vm.memory.util", "perf_counter[\\Memory\\% Committed Bytes In Use]"]:
                 server_metrics[hid]["ram"] = round(val, 1)
+                
+            # SWAP (Pagefile no Windows ou Swap no Linux)
             elif key == "system.swap.size[,pfree]":
                 server_metrics[hid]["swap"] = round(100.0 - val, 1)
             elif key == "system.swap.free.percent":
                 if val > 0: server_metrics[hid]["swap"] = round(100.0 - val, 1)
+            elif key == "perf_counter[\\Paging File(_Total)\\% Usage]":
+                server_metrics[hid]["swap"] = round(val, 1)
                 
         # Discos
         import re

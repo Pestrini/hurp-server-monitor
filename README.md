@@ -96,7 +96,7 @@ O sistema abrirá automaticamente uma aba no seu navegador padrão (geralmente e
 
 ## 🤝 Suporte e Autoria
 
-Desenvolvido por **Gabriel Pestrini** (@PeSt)  
+Desenvolvido por **Gabriel Pestrini** (@gpestrini)  
 Contato: [gabriel.pestrini@unimedribeirao.com.br](mailto:gabriel.pestrini@unimedribeirao.com.br)
 
 ---

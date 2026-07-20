@@ -12,7 +12,7 @@ payload = {
     "method": "item.get",
     "params": {
         "output": ["itemid", "name", "key_", "lastvalue", "hostid"],
-        "hostids": ["10636", "10623"]
+        "hostids": ["10513", "10623"]
     },
     "auth": token,
     "id": 1

@@ -202,8 +202,8 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             "processos_top": "N/A"
         })
         
-    # Processa Memoria, CPU e Servicos (se aplicável ao primeiro resultado para salvar a sessao inteira)
-    if results and (sections["MEM_SWAP"] or sections["TOP_CPU"] or sections["SERVICES"]):
+    # Processa Memoria, CPU e Servicos (mesmo se nao houver particoes)
+    if sections["MEM_SWAP"] or sections["TOP_CPU"] or sections["SERVICES"]:
         # Valores globais
         ram_perc = "N/A"
         swap_perc = "N/A"
@@ -247,8 +247,6 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             if server_info["so"] == "Linux" and len(parts) >= 3:
                 top_procs.append(f"{parts[-1]} ({parts[0]}%)")
             elif server_info["so"] == "Windows" and len(parts) >= 2:
-                # Windows format: Name CPU WorkingSet -> pode ter multiplas partes no nome
-                # O ideal é pegar o Nome e CPU
                 cpu = parts[-2]
                 name = " ".join(parts[:-2])
                 top_procs.append(f"{name} ({cpu}%)")
@@ -261,11 +259,33 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
                 if st.strip() != "not_installed":
                     svc_stats.append(f"{svc.strip()} ({st.strip()})")
             else: # Windows
-                parts = re.split(r'\s{2,}', line.strip()) # Windows format table usually has large spaces
+                parts = re.split(r'\s{2,}', line.strip())
                 if len(parts) == 1:
                     parts = re.split(r'\s+', line.strip())
                 if len(parts) >= 2:
                     svc_stats.append(f"{parts[0].strip()} ({parts[1].strip()})")
+                    
+        # Se nao houver particoes lidas, crie uma linha METRICS_ONLY
+        if not results:
+            results.append({
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "servidor": server_name or "Desconhecido",
+                "ip": server_info["ip"],
+                "zabbix_hostname": server_info.get("hostname", "N/A"),
+                "so": server_info["so"],
+                "particao": "METRICS_ONLY",
+                "capacidade_total": "N/A",
+                "espaco_ocupado": "N/A",
+                "espaco_disponivel": "N/A",
+                "percentual_uso": "N/A",
+                "status_alerta": "NORMAL",
+                "raw_percent": 0.0,
+                "cpu_percent": "N/A",
+                "ram_percent": "N/A",
+                "swap_percent": "N/A",
+                "servicos_status": "N/A",
+                "processos_top": "N/A"
+            })
                     
         # Apply to all disks of this server
         for r in results:
