@@ -1,0 +1,121 @@
+{
+    "SHIFT_DB_PRD": {
+        "ip": "10.200.0.124",
+        "so": "Linux",
+        "hostname": "HVMSHIFTPROD01",
+        "identifiers": [
+            "10.200.0.124",
+            "rhel-dados",
+            "rhel-root",
+            "rhel-binario",
+            "rhel-backup",
+            "rhel-tmp",
+            "rhel-journal"
+        ],
+        "zabbix_hostid": "10541"
+    },
+    "SHIFT_SHADOW": {
+        "ip": "10.200.0.125",
+        "so": "Linux",
+        "hostname": "HVMSHIFTSHAD01",
+        "identifiers": [
+            "10.200.0.125"
+        ],
+        "zabbix_hostid": "10542"
+    },
+    "SHIFT_AUTOMACAO": {
+        "ip": "10.200.0.127",
+        "so": "Windows",
+        "hostname": "H-VMSHIFTAUTO01",
+        "identifiers": [
+            "10.200.0.127",
+            "C:",
+            "D:"
+        ],
+        "zabbix_hostid": "10458"
+    },
+    "SHIFT_WEB": {
+        "ip": "10.200.0.126",
+        "so": "Linux",
+        "hostname": "HVMSHIFTWEB01",
+        "identifiers": [
+            "10.200.0.126"
+        ],
+        "zabbix_hostid": "10543"
+    },
+    "VIVACE_PACS_01": {
+        "ip": "10.60.0.101",
+        "so": "Windows",
+        "hostname": "h_vmmvpacsviv01",
+        "identifiers": [
+            "10.60.0.101",
+            "PACS01",
+            "PACS02",
+            "TEMPORARIO"
+        ],
+        "zabbix_hostid": "10623"
+    },
+    "VIVACE_PACS_02": {
+        "ip": "10.60.0.102",
+        "so": "Windows",
+        "hostname": "H_VMMVPACSHMG01",
+        "identifiers": [
+            "10.60.0.102"
+        ]
+    },
+    "VIVACE_PACS_WEB": {
+        "ip": "172.20.30.248",
+        "so": "Windows",
+        "hostname": "H_VMMVPACSEXM01",
+        "identifiers": [
+            "172.20.30.248"
+        ]
+    },
+    "MV_PRODUCAO_02": {
+        "ip": "10.200.0.151",
+        "so": "Linux",
+        "hostname": "HVMMVAPPPROD02",
+        "identifiers": [
+            "10.200.0.151"
+        ]
+    },
+    "MV_PRODUCAO_01": {
+        "ip": "10.200.0.146",
+        "so": "Windows",
+        "hostname": "hvmmvappprod01",
+        "identifiers": [
+            "10.200.0.146"
+        ],
+        "zabbix_hostid": "10513"
+    },
+    "MV_BALANCE": {
+        "ip": "10.200.0.144",
+        "so": "Linux",
+        "hostname": "H-VMMVBALANCE01",
+        "identifiers": [
+            "10.200.0.144",
+            "vg_root-LogVol00",
+            "vg_mv-LogVol00",
+            "vg_hvmmvbalance0"
+        ],
+        "zabbix_hostid": "10504"
+    },
+    "HINNO_APP": {
+        "ip": "10.200.0.167",
+        "so": "Linux",
+        "hostname": "H-VMCMEPROD01",
+        "identifiers": [
+            "10.200.0.167",
+            "ubuntu--vg"
+        ]
+    },
+    "GREEN": {
+        "ip": "172.20.30.246",
+        "so": "Linux",
+        "hostname": "H-VMMVGREEN",
+        "identifiers": [
+            "172.20.30.246",
+            "vmmvgreen-root"
+        ]
+    }
+}
