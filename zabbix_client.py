@@ -13,15 +13,27 @@ def get_env_var(var_name):
         val = os.environ.get(var_name)
     return val
 
-HOSTS = {
-    "10541": {"name": "SHIFT_DB_PRD", "ip": "192.168.1.1", "zabbix_hostname": "SERVER-01"},
-    "10542": {"name": "SHIFT_SHADOW", "ip": "192.168.1.2", "zabbix_hostname": "SERVER-02"},
-    "10543": {"name": "SHIFT_WEB", "ip": "192.168.1.4", "zabbix_hostname": "SERVER-04"},
-    "10458": {"name": "SHIFT_AUTOMACAO", "ip": "192.168.1.3", "zabbix_hostname": "SERVER-03"},
-    "10504": {"name": "MV_BALANCE", "ip": "192.168.1.10", "zabbix_hostname": "SERVER-10"},
-    "10513": {"name": "MV_PRODUCAO_01", "ip": "192.168.1.9", "zabbix_hostname": "SERVER-09"},
-    "10623": {"name": "VIVACE_PACS_01", "ip": "192.168.1.5", "zabbix_hostname": "SERVER-05"}
-}
+import json
+
+def load_zabbix_hosts():
+    config_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'servers.json')
+    hosts = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                servers = json.load(f)
+                for name, info in servers.items():
+                    if "zabbix_hostid" in info:
+                        hosts[info["zabbix_hostid"]] = {
+                            "name": name,
+                            "ip": info.get("ip", ""),
+                            "zabbix_hostname": info.get("hostname", "")
+                        }
+        except Exception as e:
+            print(f"Erro ao ler servers.json em zabbix_client: {e}")
+    return hosts
+
+HOSTS = load_zabbix_hosts()
 
 def rpc_call(method, params):
     api_url = get_env_var("ZABBIX_API_URL")

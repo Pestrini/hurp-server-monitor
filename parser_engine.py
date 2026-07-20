@@ -3,81 +3,35 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-# Mapeamento de Servidores
-SERVERS = {
-    "SHIFT_DB_PRD": {
-        "ip": "192.168.1.1",
-        "so": "Linux",
-        "hostname": "SERVER-01",
-        "identifiers": ["192.168.1.1", "rhel-dados", "rhel-root", "rhel-binario", "rhel-backup", "rhel-tmp", "rhel-journal"]
-    },
-    "SHIFT_SHADOW": {
-         "ip": "192.168.1.2",
-         "so": "Linux",
-         "hostname": "SERVER-02",
-         "identifiers": ["192.168.1.2"]
-    },
-    "SHIFT_AUTOMACAO": {
-        "ip": "192.168.1.3",
-        "so": "Windows",
-        "hostname": "SERVER-03",
-        "identifiers": ["192.168.1.3", "C:", "D:"]
-    },
-    "SHIFT_WEB": {
-        "ip": "192.168.1.4",
-        "so": "Linux",
-        "hostname": "SERVER-04",
-        "identifiers": ["192.168.1.4"]
-    },
-    "VIVACE_PACS_01": {
-        "ip": "192.168.1.5",
-        "so": "Windows",
-        "hostname": "SERVER-05",
-        "identifiers": ["192.168.1.5", "PACS01", "PACS02", "TEMPORARIO"]
-    },
-    "VIVACE_PACS_02": {
-        "ip": "192.168.1.6",
-        "so": "Windows",
-        "hostname": "SERVER-06",
-        "identifiers": ["192.168.1.6"]
-    },
-    "VIVACE_PACS_WEB": {
-        "ip": "192.168.1.7",
-        "so": "Windows",
-        "hostname": "SERVER-07",
-        "identifiers": ["192.168.1.7"]
-    },
-    "MV_PRODUCAO_02": {
-        "ip": "192.168.1.8",
-        "so": "Linux",
-        "hostname": "SERVER-08",
-        "identifiers": ["192.168.1.8"]
-    },
-    "MV_PRODUCAO_01": {
-        "ip": "192.168.1.9",
-        "so": "Windows",
-        "hostname": "SERVER-09",
-        "identifiers": ["192.168.1.9"]
-    },
-    "MV_BALANCE": {
-        "ip": "192.168.1.10",
-        "so": "Linux",
-        "hostname": "SERVER-10",
-        "identifiers": ["192.168.1.10", "vg_root-LogVol00", "vg_mv-LogVol00", "vg_hvmmvbalance0"]
-    },
-    "HINNO_APP": {
-        "ip": "192.168.1.11",
-        "so": "Linux",
-        "hostname": "SERVER-11",
-        "identifiers": ["192.168.1.11", "ubuntu--vg"]
-    },
-    "GREEN": {
-        "ip": "192.168.1.12",
-        "so": "Linux",
-        "hostname": "SERVER-12",
-        "identifiers": ["192.168.1.12", "vmmvgreen-root"]
+import json
+import os
+
+def load_servers():
+    config_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'servers.json')
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Erro ao ler servers.json: {e}")
+            
+    # Cria template caso não exista
+    dummy = {
+        "DUMMY_SERVER": {
+            "ip": "127.0.0.1",
+            "so": "Linux",
+            "hostname": "localhost",
+            "identifiers": ["127.0.0.1"]
+        }
     }
-}
+    try:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(dummy, f, indent=4)
+    except Exception as e:
+        print(f"Erro ao criar servers.json: {e}")
+    return dummy
+
+SERVERS = load_servers()
 
 def determine_status(percentual: float) -> str:
     if percentual < 75.0:
