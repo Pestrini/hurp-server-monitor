@@ -61,7 +61,7 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
     """Faz o parse do output de df -h ou comando unificado"""
     lines = [line.strip() for line in text.strip().split('\n')]
     
-    sections = {"HOST": "", "DISK": [], "MEM_SWAP": [], "TOP_CPU": [], "SERVICES": []}
+    sections = {"HOST": "", "DISK": [], "MEM_SWAP": [], "TOP_CPU": [], "SERVICES": [], "CPU_PERCENT": []}
     current_section = "DISK" # default if missing
     
     i = 0
@@ -80,6 +80,8 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             current_section = "TOP_CPU"
         elif line == "---SERVICES---":
             current_section = "SERVICES"
+        elif line == "---CPU_PERCENT---":
+            current_section = "CPU_PERCENT"
         elif line.startswith("===HURP"):
             pass
         elif current_section:
@@ -203,12 +205,26 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
         })
         
     # Processa Memoria, CPU e Servicos (mesmo se nao houver particoes)
-    if sections["MEM_SWAP"] or sections["TOP_CPU"] or sections["SERVICES"]:
+    if sections["MEM_SWAP"] or sections["TOP_CPU"] or sections["SERVICES"] or sections["CPU_PERCENT"]:
         # Valores globais
         ram_perc = "N/A"
         swap_perc = "N/A"
+        cpu_perc_global = "N/A"
         top_procs = []
         svc_stats = []
+        
+        # CPU PERCENT GLOBAL
+        for line in sections["CPU_PERCENT"]:
+            if server_info["so"] == "Linux" and "Cpu(s)" in line:
+                m = re.search(r'(\d+\.\d+)\s+id', line)
+                if m:
+                    cpu_perc_global = round(100.0 - float(m.group(1)), 1)
+            elif server_info["so"] == "Windows":
+                try:
+                    cpu_perc_global = round(float(line.strip()), 1)
+                except ValueError:
+                    pass
+
         
         # MEM
         if server_info["so"] == "Linux":
@@ -291,6 +307,7 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
         for r in results:
             r["ram_percent"] = ram_perc
             r["swap_percent"] = swap_perc
+            if cpu_perc_global != "N/A": r["cpu_percent"] = cpu_perc_global
             if top_procs: r["processos_top"] = " | ".join(top_procs[:3])
             if svc_stats: r["servicos_status"] = " | ".join(svc_stats)
             

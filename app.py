@@ -142,7 +142,7 @@ try:
         - Acesse o servidor via PuTTY ou SSH.
         - Execute o comando unificado abaixo:
         ```bash
-        echo "===HURP_DIAGNOSTICO===" && echo "HOST: $(hostname)" && echo "---DISK---" && df -h | grep -E 'dados|backup|binario|root|tmp|boot|/dev/mapper|/' && echo "---MEM_SWAP---" && free -m && echo "---TOP_CPU---" && ps -eo %cpu,%mem,comm --sort=-%cpu | head -n 6 && echo "---SERVICES---" && for svc in cache tomcat httpd nginx docker; do echo "$svc:$(systemctl is-active $svc 2>/dev/null || echo 'not_installed')"; done
+        echo "===HURP_DIAGNOSTICO===" && echo "HOST: $(hostname)" && echo "---DISK---" && df -h | grep -E 'dados|backup|binario|root|tmp|boot|/dev/mapper|/' && echo "---MEM_SWAP---" && free -m && echo "---CPU_PERCENT---" && top -bn1 | grep "Cpu(s)" && echo "---TOP_CPU---" && ps -eo %cpu,%mem,comm --sort=-%cpu | head -n 6 && echo "---SERVICES---" && for svc in cache tomcat httpd nginx docker; do echo "$svc:$(systemctl is-active $svc 2>/dev/null || echo 'not_installed')"; done
         ```
         - Copie a saída completa e cole na caixa de texto.
 
@@ -151,7 +151,7 @@ try:
         - Abra o PowerShell **como Administrador**.
         - Execute o comando unificado abaixo:
         ```powershell
-        Write-Output "===HURP_DIAGNOSTICO==="; Write-Output "HOST: $env:COMPUTERNAME"; Write-Output "---DISK---"; Get-Volume | Where-Object {$_.DriveLetter -in @('C','Z','E','H','F')} | Format-Table DriveLetter, FileSystemLabel, SizeRemaining, Size -HideTableHeaders; Write-Output "---MEM_SWAP---"; Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory, TotalVirtualMemorySize, FreeVirtualMemory | Format-List; Write-Output "---TOP_CPU---"; Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 Name, CPU, WorkingSet | Format-Table -HideTableHeaders; Write-Output "---SERVICES---"; Get-Service -Name "IISADMIN", "Tomcat*", "MConnect", "IDCE", "Cache*" -ErrorAction SilentlyContinue | Select-Object Name, Status | Format-Table -HideTableHeaders
+        Write-Output "===HURP_DIAGNOSTICO==="; Write-Output "HOST: $env:COMPUTERNAME"; Write-Output "---DISK---"; Get-Volume | Where-Object {$_.DriveLetter -in @('C','Z','E','H','F')} | Format-Table DriveLetter, FileSystemLabel, SizeRemaining, Size -HideTableHeaders; Write-Output "---MEM_SWAP---"; Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory, TotalVirtualMemorySize, FreeVirtualMemory | Format-List; Write-Output "---CPU_PERCENT---"; Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average; Write-Output "---TOP_CPU---"; Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 Name, CPU, WorkingSet | Format-Table -HideTableHeaders; Write-Output "---SERVICES---"; Get-Service -Name "IISADMIN", "Tomcat*", "MConnect", "IDCE", "Cache*" -ErrorAction SilentlyContinue | Select-Object Name, Status | Format-Table -HideTableHeaders
         ```
         - Copie a saída e cole na caixa de texto.
         **4. Consolidando**
