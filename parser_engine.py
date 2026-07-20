@@ -222,7 +222,8 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
                     cpu_perc_global = round(100.0 - float(val_str), 1)
             elif server_info["so"] == "Windows":
                 try:
-                    cpu_perc_global = round(float(line.strip()), 1)
+                    val_str = line.strip().replace(',', '.')
+                    cpu_perc_global = round(float(val_str), 1)
                 except ValueError:
                     pass
 
