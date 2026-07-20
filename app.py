@@ -40,6 +40,37 @@ if not action_logger.handlers:
     action_logger.addHandler(fh2)
 
 try:
+    def perform_merge(existing_data, new_data):
+        merged_map = {}
+        for item in existing_data:
+            merged_map[(item['servidor'], item['particao'])] = item
+            
+        merged_data = []
+        for new_row in new_data:
+            if new_row['particao'] == "METRICS_ONLY":
+                for key, old_item in merged_map.items():
+                    if key[0] == new_row['servidor']:
+                        if new_row.get('cpu_percent', 'N/A') != 'N/A': old_item['cpu_percent'] = new_row['cpu_percent']
+                        if new_row.get('ram_percent', 'N/A') != 'N/A': old_item['ram_percent'] = new_row['ram_percent']
+                        if new_row.get('swap_percent', 'N/A') != 'N/A': old_item['swap_percent'] = new_row['swap_percent']
+                        if new_row.get('servicos_status', 'N/A') != 'N/A': old_item['servicos_status'] = new_row['servicos_status']
+                        if new_row.get('processos_top', 'N/A') != 'N/A': old_item['processos_top'] = new_row['processos_top']
+            else:
+                merged_map[(new_row['servidor'], new_row['particao'])] = new_row
+        return list(merged_map.values())
+
+    @st.dialog("Aviso de Duplicidade")
+    def merge_dialog(new_data, overlapping):
+        st.warning(f"O(s) servidor(es) {', '.join(overlapping)} já existe(m) na tabela atual.")
+        st.write("Deseja substituir/mesclar os dados processados (ex: Atualizar apenas Swap e Discos novos) ou cancelar?")
+        c1, c2 = st.columns(2)
+        if c1.button("Mesclar Dados", use_container_width=True, type="primary"):
+            st.session_state["parsed_data"] = perform_merge(st.session_state["parsed_data"], new_data)
+            # Garantir que as partições METRICS_ONLY sejam filtradas caso tenham sido inseridas sozinhas
+            st.session_state["parsed_data"] = [item for item in st.session_state["parsed_data"] if item['particao'] != "METRICS_ONLY"]
+            st.rerun()
+        if c2.button("Cancelar", use_container_width=True):
+            st.rerun()
 
     st.markdown("""
     <style>
@@ -286,12 +317,17 @@ try:
                         new_data = parse_df_h_output(text_input, server_name=srv_param)
                         if new_data:
                             servers_in_new_data = set(item['servidor'] for item in new_data)
-                            st.session_state["parsed_data"] = [
-                                item for item in st.session_state["parsed_data"] 
-                                if item['servidor'] not in servers_in_new_data
-                            ]
-                            st.session_state["parsed_data"].extend(new_data)
-                            st.success("Texto processado!")
+                            servers_in_existing = set(item['servidor'] for item in st.session_state["parsed_data"])
+                            
+                            overlapping = servers_in_new_data.intersection(servers_in_existing)
+                            
+                            if overlapping:
+                                merge_dialog(new_data, overlapping)
+                            else:
+                                for item in new_data:
+                                    if item['particao'] != "METRICS_ONLY":
+                                        st.session_state["parsed_data"].append(item)
+                                st.success("Texto processado!")
             with c_btn2:
                 st.button("Limpar Campos", on_click=clear_inputs, use_container_width=True)
                 
