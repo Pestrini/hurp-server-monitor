@@ -1,11 +1,12 @@
-# HURP Server Monitor (v0.3)
+# HURP Server Monitor (v0.4)
 
 O **HURP Server Monitor** é uma aplicação web interativa desenvolvida em Python com [Streamlit](https://streamlit.io/), desenhada para otimizar e padronizar o processo de monitoramento de infraestrutura (servidores Windows e Linux) durante plantões de TI.
 
-A partir da versão 0.3, o sistema evoluiu de uma ferramenta de geração de relatórios manuais para um **Hub de Monitoramento Ativo**, integrando-se diretamente à API do Zabbix, aplicando inteligência preditiva e contando com um sistema robusto de autenticação e auditoria.
+A partir da versão 0.4, o sistema consolidou suas capacidades de **Hub de Monitoramento Ativo** e aplicou rigorosas políticas de **Segurança de Dados** para ocultar IPs e Hostnames, integrando-se diretamente à API do Zabbix, aplicando inteligência preditiva e contando com um sistema robusto de autenticação e auditoria.
 
-## 🚀 Novidades da Versão 0.3
+## 🚀 Novidades da Versão 0.4
 
+- **Ocultação de Infraestrutura (Segurança):** Todos os IPs e Hostnames internos foram removidos do código-fonte e migrados para o arquivo `servers.json`, protegido pelo `.gitignore`.
 - **Integração Zabbix via JSON-RPC:** Coleta automatizada de uso de disco, CPU, Memória, Swap, status de serviços e top processos diretamente da API do Zabbix, eliminando a necessidade de extrações manuais via terminal.
 - **Inteligência Preditiva (Smart Status):** Cálculo automático da taxa de crescimento diário do disco (`crescimento_gb_dia`) e previsão de dias até o esgotamento total (`dias_para_encher`).
 - **Autenticação e Perfis de Acesso:** Sistema de login com perfis de `admin` e `operador`, garantindo segurança no acesso e painel dedicado para gestão de usuários.
