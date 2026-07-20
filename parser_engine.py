@@ -216,9 +216,10 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
         # CPU PERCENT GLOBAL
         for line in sections["CPU_PERCENT"]:
             if server_info["so"] == "Linux" and "Cpu(s)" in line:
-                m = re.search(r'(\d+\.\d+)\s+id', line)
+                m = re.search(r'(\d+[\.,]\d+)\s*%?\s*[iI][dD]', line)
                 if m:
-                    cpu_perc_global = round(100.0 - float(m.group(1)), 1)
+                    val_str = m.group(1).replace(',', '.')
+                    cpu_perc_global = round(100.0 - float(val_str), 1)
             elif server_info["so"] == "Windows":
                 try:
                     cpu_perc_global = round(float(line.strip()), 1)
