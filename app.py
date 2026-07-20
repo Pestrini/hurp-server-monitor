@@ -215,27 +215,29 @@ try:
         """)
 
     with st.sidebar.expander("🖥️ Lista de Servidores", expanded=False):
-        st.markdown("**Monitorados pelo Zabbix (Automático):**")
-        df_zabbix = pd.DataFrame([
-            ["SHIFT_DB_PRD", "Linux", "192.168.1.1", "SERVER-01"],
-            ["SHIFT_SHADOW", "Linux", "192.168.1.2", "SERVER-02"],
-            ["SHIFT_WEB", "Linux", "192.168.1.4", "SERVER-04"],
-            ["SHIFT_AUTOMACAO", "Windows", "192.168.1.3", "SERVER-03"],
-            ["MV_BALANCE", "Linux", "192.168.1.10", "SERVER-10"],
-            ["MV_PRODUCAO_01", "Windows", "192.168.1.9", "SERVER-09"],
-            ["VIVACE_PACS_01", "Windows", "192.168.1.5", "SERVER-05"]
-        ], columns=["Servidor", "SO", "IP", "Hostname"])
-        st.dataframe(df_zabbix, hide_index=True)
+        from parser_engine import SERVERS
         
+        st.markdown("**Monitorados pelo Zabbix (Automático):**")
+        zabbix_list = []
+        manual_list = []
+        for srv, info in SERVERS.items():
+            if "zabbix_hostid" in info:
+                zabbix_list.append([srv, info.get("so", ""), info.get("ip", ""), info.get("hostname", "")])
+            else:
+                manual_list.append([srv, info.get("so", ""), info.get("ip", ""), info.get("hostname", "")])
+                
+        if zabbix_list:
+            df_zabbix = pd.DataFrame(zabbix_list, columns=["Servidor", "SO", "IP", "Hostname"])
+            st.dataframe(df_zabbix, hide_index=True)
+        else:
+            st.write("Nenhum")
+            
         st.markdown("**NÃO Monitorados (Copiar e Colar):**")
-        df_manuais = pd.DataFrame([
-            ["VIVACE_PACS_02", "Windows", "192.168.1.6", "SERVER-06"],
-            ["VIVACE_PACS_WEB", "Windows", "192.168.1.7", "SERVER-07"],
-            ["MV_PRODUCAO_02", "Linux", "192.168.1.8", "SERVER-08"],
-            ["HINNO_APP", "Linux", "192.168.1.11", "SERVER-11"],
-            ["GREEN", "Linux", "192.168.1.12", "SERVER-12"]
-        ], columns=["Servidor", "SO", "IP", "Hostname"])
-        st.dataframe(df_manuais, hide_index=True)
+        if manual_list:
+            df_manuais = pd.DataFrame(manual_list, columns=["Servidor", "SO", "IP", "Hostname"])
+            st.dataframe(df_manuais, hide_index=True)
+        else:
+            st.write("Nenhum")
 
     st.title("HURP Server Monitor")
 
@@ -487,8 +489,12 @@ try:
                         svcs = rows[0].get('servicos_status', 'N/A')
                         procs = rows[0].get('processos_top', 'N/A')
                         
+                        cpu_str = f"{cpu}%" if cpu != 'N/A' else 'N/A'
+                        ram_str = f"{ram}%" if ram != 'N/A' else 'N/A'
+                        swap_str = f"{swap}%" if swap != 'N/A' else 'N/A'
+                        
                         beh_html = f"<div style='font-size: 13px; color: #555; margin-bottom: 10px;'>"
-                        beh_html += f"<b>CPU:</b> {cpu}% | <b>RAM:</b> {ram}% | <b>Swap:</b> {swap}%"
+                        beh_html += f"<b>CPU:</b> {cpu_str} | <b>RAM:</b> {ram_str} | <b>Swap:</b> {swap_str}"
                         if svcs != 'N/A': beh_html += f"<br><b>Serviços:</b> {svcs}"
                         if procs != 'N/A': beh_html += f"<br><b>Top Proc:</b> {procs}"
                         beh_html += "</div>"
