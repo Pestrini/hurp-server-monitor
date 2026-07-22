@@ -50,10 +50,14 @@ def identify_server_from_text(text: str) -> Optional[str]:
             if info["ip"] == ip:
                 return srv
                 
-    # Procura por LVMs ou identificadores específicos
+    # Procura por hostname, LVMs ou identificadores específicos
+    text_lower = text.lower()
     for srv, info in SERVERS.items():
-        for identifier in info["identifiers"]:
-            if identifier in text:
+        hostname = info.get("hostname", "").lower()
+        if hostname and hostname in text_lower:
+            return srv
+        for identifier in info.get("identifiers", []):
+            if identifier.lower() in text_lower:
                 return srv
     return None
 
@@ -105,6 +109,10 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
         
     server_info = SERVERS.get(server_name, {"ip": "Desconhecido", "so": "Linux"})
     
+    # Auto-detect Windows if it's unknown or defaulted to Linux but has Windows specific markers
+    if "TotalVisibleMemorySize" in text or "Win32_OperatingSystem" in text or "DriveLetter" in text:
+        server_info["so"] = "Windows"
+    
     # Processa Discos
     for line in sections["DISK"]:
         if ("Caption" in line and "Size" in text) or "DeviceId" in line or "--------" in line:
@@ -122,15 +130,8 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             except ValueError:
                 perc = 0.0
                 
-        elif len(parts) >= 3 and parts[0].endswith(':'):
-            particao = parts[0]
-            volume_parts = parts[1:-2]
-            if volume_parts:
-                nome_volume = " ".join(volume_parts)
-                particao = f"{particao} ({nome_volume})"
-            else:
-                if server_name in ["VIVACE_PACS_02", "VIVACE_PACS_WEB"] and particao == "C:":
-                    particao = "C: (OS)"
+        elif len(parts) >= 3 and (parts[0].endswith(':') or (len(parts[0]) == 1 and parts[0].isalpha())):
+            particao = parts[0] if parts[0].endswith(':') else parts[0] + ":"
             
             try:
                 free_bytes = float(parts[-2])
@@ -138,6 +139,14 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             except ValueError:
                 continue
                 
+            volume_parts = parts[1:-2]
+            if volume_parts:
+                nome_volume = " ".join(volume_parts)
+                particao = f"{particao} ({nome_volume})"
+            else:
+                if "VIVACE" in server_name and particao == "C:":
+                    particao = "C: (OS)"
+            
             free_gb = free_bytes / (1024**3)
             total_gb = total_bytes / (1024**3)
             ocupado_gb = total_gb - free_gb
@@ -265,9 +274,14 @@ def parse_df_h_output(text: str, server_name: str = None) -> List[Dict[str, Any]
             if server_info["so"] == "Linux" and len(parts) >= 3:
                 top_procs.append(f"{parts[-1]} ({parts[0]}%)")
             elif server_info["so"] == "Windows" and len(parts) >= 2:
-                cpu = parts[-2]
+                cpu_raw = parts[-2]
+                try:
+                    cpu_float = float(cpu_raw.replace(',', '.'))
+                    cpu_str = f"{cpu_float:.1f}%"
+                except:
+                    cpu_str = f"{cpu_raw}%"
                 name = " ".join(parts[:-2])
-                top_procs.append(f"{name} ({cpu}%)")
+                top_procs.append(f"{name} ({cpu_str})")
                 
         # Services
         for line in sections["SERVICES"]:

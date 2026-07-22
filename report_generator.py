@@ -10,33 +10,44 @@ def pre_fill_answers(parsed_data: List[Dict[str, Any]]) -> Dict[str, str]:
     pontos_atencao = []
     
     for row in parsed_data:
-        if row["status_alerta"] in ["ATENÇÃO", "CRÍTICO"]:
-            servers_problem.add(row["servidor"])
-            
-            if row["servidor"] == "SHIFT_DB_PRD" and "dados" in row.get("particao", "").lower() and row.get("raw_percent", 0) > 75:
-                acoes_imediatas.append("Avaliar expurgos/locks no Caché (SHIFT_DB_PRD /dados).")
-                
-            if "VIVACE_PACS" in row["servidor"] and ("Z:" in row.get("particao", "") or "C:" in row.get("particao", "")) and row.get("raw_percent", 0) > 85:
-                acoes_imediatas.append(f"Limpar imagens temporárias / logs do Vivace (Unidade {row['particao']}).")
-                pontos_atencao.append(f"Espaço da unidade {row['particao']} do PACS alto ({row.get('percentual_uso', '')}).")
-                
-        # Lógica preditiva (Zabbix)
+        raw_perc = float(row.get("raw_percent", 0))
+        
         dias = row.get("dias_para_encher", "N/A")
+        vai_encher = False
         if dias != "N/A":
             try:
                 if float(dias) <= 30:
-                    pontos_atencao.append(f"Disco {row['particao']} do {row['servidor']} vai encher em {dias} dias! Crescimento de {row.get('crescimento_gb_dia', 0)} GB/dia.")
+                    vai_encher = True
             except:
                 pass
+                
+        if row["status_alerta"] in ["ATENÇÃO", "CRÍTICO"]:
+            servers_problem.add(row["servidor"])
+            
+            # Regras específicas
+            if row["servidor"] == "SHIFT_DB_PRD" and "dados" in row.get("particao", "").lower() and raw_perc > 75:
+                acoes_imediatas.append("Avaliar expurgos/locks no Caché (SHIFT_DB_PRD /dados).")
+                
+            elif "VIVACE_PACS" in row["servidor"] and ("Z:" in row.get("particao", "") or "C:" in row.get("particao", "")) and raw_perc > 85:
+                acoes_imediatas.append(f"Limpar imagens temporárias / logs do Vivace (Unidade {row['particao']}).")
+                msg = f"Espaço da unidade {row['particao']} do PACS alto ({row.get('percentual_uso', '')})."
+                if vai_encher:
+                    msg += f" Vai encher em {dias} dias!"
+                pontos_atencao.append(msg)
+            else:
+                # Regra genérica para servidores sem regras específicas que estão com alerta
+                msg = f"Servidor {row['servidor']} ({row['particao']}) está com {row.get('percentual_uso', '')} de uso."
+                if vai_encher:
+                    msg += f" Vai encher em {dias} dias (Cresce {row.get('crescimento_gb_dia', 0)} GB/dia)!"
+                pontos_atencao.append(msg)
+                
+        elif vai_encher:
+            # Caso não seja ATENÇÃO/CRÍTICO por espaço absoluto, mas a predição alertou
+            pontos_atencao.append(f"Disco {row['particao']} do {row['servidor']} vai encher em {dias} dias! (Crescimento de {row.get('crescimento_gb_dia', 0)} GB/dia).")
 
-    if not servers_problem:
-        ans1 = "Nenhum"
-        ans2 = "Nenhuma"
-        ans3 = "Nenhum"
-    else:
-        ans1 = ", ".join(servers_problem)
-        ans2 = " ".join(acoes_imediatas) if acoes_imediatas else "Verificar partições com alerta."
-        ans3 = " ".join(pontos_atencao) if pontos_atencao else "Acompanhar crescimento."
+    ans1 = ", ".join(servers_problem) if servers_problem else "Nenhum"
+    ans2 = " ".join(acoes_imediatas) if acoes_imediatas else ("Verificar partições com alerta." if servers_problem else "Nenhuma")
+    ans3 = " ".join(pontos_atencao) if pontos_atencao else ("Acompanhar crescimento." if servers_problem else "Nenhum")
         
     return {
         "q1": ans1,
